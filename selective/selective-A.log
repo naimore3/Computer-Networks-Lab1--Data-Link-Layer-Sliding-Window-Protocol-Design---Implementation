@@ -1,0 +1,28 @@
+000.000 =============================================================
+000.000                     Station A                               
+000.000 -------------------------------------------------------------
+000.000 Protocol.lib, version 4.0, jiangyanjun0718@bupt.edu.cn
+000.000 Channel: 8000 bps, 270 ms propagation delay, bit error rate 1.0E-05
+000.000 Log file "selective-A.log", TCP port 59144, debug mask 0x00
+000.000 Station A is waiting for station B on TCP port 59144 ... Done.
+000.308 New epoch: Sat May 10 19:43:16 2025
+000.309 =================================================================
+000.309 
+000.309 Designed by Jiang Yanjun, build: May 10 2025  19:42:57
+003.770 .... 3 packets received, 2339 bps, 29.23%, Err 1 (4.6e-05)
+005.916 .... 16 packets received, 6865 bps, 85.82%, Err 1 (2.6e-05)
+008.057 .... 24 packets received, 7109 bps, 88.86%, Err 1 (1.8e-05)
+010.190 .... 32 packets received, 7244 bps, 90.55%, Err 1 (1.4e-05)
+012.392 .... 40 packets received, 7282 bps, 91.03%, Err 1 (1.1e-05)
+014.536 .... 48 packets received, 7340 bps, 91.75%, Err 1 (9.3e-06)
+016.700 .... 56 packets received, 7372 bps, 92.15%, Err 1 (8.0e-06)
+017.919 ** WARNING: System too busy, sleep 15 ms, but be awakened 78 ms later
+018.854 .... 64 packets received, 7401 bps, 92.51%, Err 1 (7.0e-06)
+021.030 .... 72 packets received, 7415 bps, 92.68%, Err 1 (6.3e-06)
+023.188 .... 80 packets received, 7432 bps, 92.90%, Err 1 (5.6e-06)
+025.339 .... 88 packets received, 7449 bps, 93.11%, Err 1 (5.2e-06)
+026.956 ** WARNING: System too busy, sleep 15 ms, but be awakened 90 ms later
+027.521 .... 95 packets received, 7376 bps, 92.20%, Err 1 (4.7e-06)
+029.663 .... 103 packets received, 7396 bps, 92.45%, Err 1 (4.4e-06)
+031.841 .... 111 packets received, 7405 bps, 92.57%, Err 1 (4.1e-06)
+033.119 TCP Disconnected.

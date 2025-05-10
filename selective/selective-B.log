@@ -1,0 +1,27 @@
+000.000 =============================================================
+000.000                     Station B                               
+000.000 -------------------------------------------------------------
+000.000 Protocol.lib, version 4.0, jiangyanjun0718@bupt.edu.cn
+000.000 Channel: 8000 bps, 270 ms propagation delay, bit error rate 1.0E-05
+000.000 Log file "E:\Code_File\C++\Computer-Networks-Lab1--Data-Link-Layer-Sliding-Window-Protocol-Design---Implementation\selective\selective-B.log", TCP port 59144, debug mask 0x00
+000.000 Station B is connecting station A (TCP port 59144) ... Done.
+000.308 New epoch: Sat May 10 19:43:16 2025
+000.308 =================================================================
+000.309 
+000.309 Designed by Jiang Yanjun, build: May 10 2025  19:42:57
+002.744 .... 8 packets received, 7596 bps, 94.95%, Err 0 (0.0e+00)
+004.869 .... 16 packets received, 7652 bps, 95.66%, Err 1 (2.8e-05)
+007.043 .... 23 packets received, 7296 bps, 91.20%, Err 1 (1.9e-05)
+009.195 .... 31 packets received, 7375 bps, 92.19%, Err 1 (1.4e-05)
+011.337 .... 39 packets received, 7430 bps, 92.87%, Err 1 (1.1e-05)
+013.560 .... 47 packets received, 7420 bps, 92.75%, Err 1 (9.5e-06)
+015.671 .... 55 packets received, 7468 bps, 93.34%, Err 1 (8.1e-06)
+016.089 ** WARNING: System too busy, sleep 15 ms, but be awakened 77 ms later
+017.841 .... 63 packets received, 7478 bps, 93.47%, Err 1 (7.1e-06)
+020.017 .... 71 packets received, 7484 bps, 93.55%, Err 1 (6.4e-06)
+022.168 .... 79 packets received, 7497 bps, 93.71%, Err 1 (5.7e-06)
+024.297 .... 87 packets received, 7515 bps, 93.94%, Err 1 (5.2e-06)
+026.956 ** WARNING: System too busy, sleep 15 ms, but be awakened 90 ms later
+028.077 .... 95 packets received, 7077 bps, 88.47%, Err 3 (1.4e-05)
+030.283 .... 108 packets received, 7448 bps, 93.10%, Err 3 (1.3e-05)
+032.413 .... 116 packets received, 7465 bps, 93.31%, Err 3 (1.2e-05)
