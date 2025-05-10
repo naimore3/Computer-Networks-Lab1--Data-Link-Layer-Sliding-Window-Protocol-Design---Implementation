@@ -4,7 +4,7 @@
 #include "gobackn.h"
 #include "protocol.h"
 
-#define DATA_TIMER 2000
+#define DATA_TIMER 1000
 #define ACK_TIMER 300
 #define MAX_SEQ 7
 #define INC(num) ((num) = ((num + 1) & MAX_SEQ))

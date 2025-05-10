@@ -1,8 +1,7 @@
 
 /* FRAME kind */
 #define FRAME_DATA 1
-#define FRAME_ACK  2
-#define FRAME_NAK  3
+#define FRAME_ACK 2
 
 /*  
     DATA Frame
