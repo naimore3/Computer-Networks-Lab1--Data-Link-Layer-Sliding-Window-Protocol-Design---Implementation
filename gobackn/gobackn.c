@@ -1,213 +1,234 @@
-#include "gobackn.h"
-
-#include <stdbool.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
-
+#include "gobackn.h"
 #include "protocol.h"
 
 #define DATA_TIMER 2000
 #define ACK_TIMER 300
 #define MAX_SEQ 7
-#define inc(num) num = ((num + 1) & MAX_SEQ)
+#define INC(num) ((num) = ((num + 1) & MAX_SEQ))
 
-typedef unsigned char seq_nr;
+typedef unsigned char SeqNr;
 
-struct FRAME {
-    unsigned char kind; /* FRAME_DATA */
-    unsigned char ack;
-    unsigned char seq;
-    unsigned char data[PKT_LEN];
-    unsigned int padding;
-};
+typedef struct {
+    unsigned char Kind;  /* FRAME_DATA, FRAME_ACK, FRAME_NAK */
+    unsigned char Ack;
+    unsigned char Seq;
+    unsigned char Data[PKT_LEN];
+    unsigned int Padding;
+} Frame;
 
-static seq_nr frame_to_send = 0;
-static seq_nr ack_expected = 0;
-static seq_nr frame_expected = 0;
+static SeqNr FrameToSend = 0;
+static SeqNr AckExpected = 0;
+static SeqNr FrameExpected = 0;
 
-static bool no_nak = true;
-static bool phl_ready = false;
+static bool NoNAK = true;
+static bool PhlReady = false;
 
-static int frame_length = 0;
+static int FrameLength = 0;
 
-static unsigned char buffer[MAX_SEQ + 1][PKT_LEN];
-static int packet_length[MAX_SEQ + 1];
+static unsigned char Buffer[MAX_SEQ + 1][PKT_LEN];
+static int PacketLength[MAX_SEQ + 1];
 
-static seq_nr nbuffered = 0;
+static SeqNr NBuffered = 0;
 
-static void put_frame(unsigned char* frame, int len) {
-    *(unsigned int*)(frame + len) = crc32(frame, len);
-
-    send_frame(frame, len + 4);
+// 发送帧到物理层
+static void PutFrame(unsigned char* Frame, int Len) {
+    *(unsigned int*)(Frame + Len) = crc32(Frame, Len);
+    send_frame(Frame, Len + 4);
 }
 
-static void send_data(seq_nr frame_nr, seq_nr frame_expected,
-                      unsigned char* packet, size_t len) {
-    struct FRAME s;
+// 发送数据帧
+static void SendData(SeqNr FrameNr, SeqNr FrameExpected, unsigned char* Packet, size_t Len) {
+    Frame S;
 
-    s.kind = FRAME_DATA;
-    s.seq = frame_nr;
-    s.ack = (frame_expected + MAX_SEQ) % (MAX_SEQ + 1);
+    S.Kind = FRAME_DATA;
+    S.Seq = FrameNr;
+    S.Ack = (FrameExpected + MAX_SEQ) % (MAX_SEQ + 1);
 
-    if (len > PKT_LEN) {
-        dbg_frame(
-            "Error while sending packet %d with ack %d: Length too large.\n",
-            s.seq, s.ack, len);
+    if (Len > PKT_LEN) {
+        dbg_frame("Error while sending packet %d with ack %d: Length too large.\n",
+                  S.Seq, S.Ack, Len);
         return;
     }
-    memcpy(s.data, packet, PKT_LEN);
+    
+    memcpy(S.Data, Packet, PKT_LEN);
 
-    dbg_frame("Packet sent: seq = %d, ack = %d, data id = %d\n", s.seq, s.ack,
-              *(short*)s.data);
+    dbg_frame("Packet sent: seq = %d, ack = %d, data id = %d\n", 
+              S.Seq, S.Ack, *(short*)S.Data);
 
-    // kind + ack + seq + original data
-    put_frame((unsigned char*)&s, 3 + PKT_LEN);
-}
-static void send_ACK(unsigned char frame_expected) {
-    struct FRAME s;
-
-    s.kind = FRAME_ACK;
-    s.ack = (frame_expected + MAX_SEQ) % (MAX_SEQ + 1);
-
-    dbg_frame(
-        "Send "
-        "ACK"
-        " %d\n",
-        s.ack);
-
-    put_frame((unsigned char*)&s, 2);
-}
-static void send_NAK(unsigned char frame_expected) {
-    struct FRAME s;
-
-    s.kind = FRAME_NAK;
-    s.ack = (frame_expected + MAX_SEQ) % (MAX_SEQ + 1);
-
-    dbg_frame(
-        "Send "
-        "NAK"
-        " %d\n",
-        s.ack);
-
-    put_frame((unsigned char*)&s, 2);
-}
-static inline bool bewteen(unsigned char a, unsigned char b, unsigned char c) {
-    return ((a <= b) && (b < c)) || ((c < a) && (a <= b)) ||
-           ((b < c) && (c < a));
+    // 发送帧: kind + ack + seq + 数据
+    PutFrame((unsigned char*)&S, 3 + PKT_LEN);
 }
 
-static void network_ready_handler() {
-    // from_network_layer
-    packet_length[frame_to_send] = get_packet(buffer[frame_to_send]);
-    // expand the sender's window
-    nbuffered++;
-    // send_data
-    send_data(frame_to_send, frame_expected, buffer[frame_to_send],
-              packet_length[frame_to_send]);
-    start_timer(frame_to_send, DATA_TIMER);
+// 发送ACK帧
+static void SendACK(unsigned char FrameExpected) {
+    Frame S;
+
+    S.Kind = FRAME_ACK;
+    S.Ack = (FrameExpected + MAX_SEQ) % (MAX_SEQ + 1);
+
+    dbg_frame("Send ACK %d\n", S.Ack);
+    PutFrame((unsigned char*)&S, 2);
+}
+
+// 发送NAK帧
+static void SendNAK(unsigned char FrameExpected) {
+    Frame S;
+
+    S.Kind = FRAME_NAK;
+    S.Ack = (FrameExpected + MAX_SEQ) % (MAX_SEQ + 1);
+
+    dbg_frame("Send NAK %d\n", S.Ack);
+    PutFrame((unsigned char*)&S, 2);
+}
+
+// 判断序号是否在窗口范围内
+static inline bool Between(unsigned char A, unsigned char B, unsigned char C) {
+    return ((A <= B) && (B < C)) || ((C < A) && (A <= B)) || ((B < C) && (C < A));
+}
+
+// 处理网络层就绪事件
+static void NetworkReadyHandler() {
+    // 从网络层获取数据包
+    PacketLength[FrameToSend] = get_packet(Buffer[FrameToSend]);
+    
+    // 增加窗口大小
+    NBuffered++;
+    
+    // 发送数据帧
+    SendData(FrameToSend, FrameExpected, Buffer[FrameToSend], PacketLength[FrameToSend]);
+    start_timer(FrameToSend, DATA_TIMER);
     stop_ack_timer();
 
-    inc(frame_to_send);
-    phl_ready = false;
+    INC(FrameToSend);
+    PhlReady = false;
 }
-static void physical_ready_handler() { phl_ready = true; }
-static void frame_received_handler() {
-    // from_physical_layer
-    struct FRAME f;
-    frame_length = recv_frame((unsigned char*)(&f), sizeof(f));
-    // bad_frame, should return nak
-    if (frame_length < 5 || crc32((unsigned char*)&f, frame_length) != 0) {
-        dbg_event("Bad CRC Checksum,Receieve Error!!!\n");
-        if (no_nak) {
-            send_NAK(frame_expected);
-            no_nak = true;
+
+// 处理物理层就绪事件
+static void PhysicalReadyHandler() {
+    PhlReady = true;
+}
+
+// 处理帧接收事件
+static void FrameReceivedHandler() {
+    // 从物理层接收帧
+    Frame F;
+    FrameLength = recv_frame((unsigned char*)(&F), sizeof(F));
+    
+    // 检查帧CRC校验
+    if (FrameLength < 5 || crc32((unsigned char*)&F, FrameLength) != 0) {
+        dbg_event("Bad CRC Checksum, Receive Error!!!\n");
+        
+        if (NoNAK) {
+            SendNAK(FrameExpected);
+            NoNAK = false;
             stop_ack_timer();
         }
 
         return;
     }
-    if (f.kind == FRAME_ACK) dbg_frame("Recv ACK  %d\n", f.ack);
-    if (f.kind == FRAME_NAK) dbg_frame("Recv NAK  %d\n", f.ack);
-    if (f.kind == FRAME_DATA) {
-        dbg_frame("Recv DATA %d %d, ID %d\n", f.seq, f.ack, *(short*)f.data);
-        if (f.seq == frame_expected) {
-            put_packet(f.data, frame_length - 7);
-            no_nak = true;
-            inc(frame_expected);
+    
+    // 记录接收到的帧
+    if (F.Kind == FRAME_ACK) 
+        dbg_frame("Recv ACK %d\n", F.Ack);
+        
+    if (F.Kind == FRAME_NAK) 
+        dbg_frame("Recv NAK %d\n", F.Ack);
+        
+    if (F.Kind == FRAME_DATA) {
+        dbg_frame("Recv DATA %d %d, ID %d\n", F.Seq, F.Ack, *(short*)F.Data);
+        
+        // 处理按序到达的数据帧
+        if (F.Seq == FrameExpected) {
+            put_packet(F.Data, FrameLength - 7);
+            NoNAK = true;
+            INC(FrameExpected);
             start_ack_timer(ACK_TIMER);
-        } else if (no_nak) {
-            send_NAK(frame_expected);
-            no_nak = false;
+        } 
+        // 发送NAK请求重传
+        else if (NoNAK) {
+            SendNAK(FrameExpected);
+            NoNAK = false;
             stop_ack_timer();
         }
     }
 
-    // stop all the timers before
-    while (bewteen(ack_expected, f.ack, frame_to_send)) {
-        nbuffered--;
-        stop_timer(ack_expected);
-        inc(ack_expected);
+    // 滑动发送窗口，确认已接收的帧
+    while (Between(AckExpected, F.Ack, FrameToSend)) {
+        NBuffered--;
+        stop_timer(AckExpected);
+        INC(AckExpected);
     }
 
-    if (f.kind == FRAME_NAK) {
-        stop_timer(ack_expected + 1);
-        frame_to_send = ack_expected;
-        // resend those expected packet
-        for (seq_nr i = 0; i < nbuffered; i++) {
-            send_data(frame_to_send, frame_expected, buffer[frame_to_send],
-                      packet_length[frame_to_send]);
-            start_timer(frame_to_send, DATA_TIMER);
+    // 处理NAK，重传指定帧
+    if (F.Kind == FRAME_NAK) {
+        stop_timer(AckExpected);
+        SeqNr ResendStart = AckExpected;
+        
+        // 回退N步，重传所有已发送但未确认的帧
+        for (SeqNr i = 0; i < NBuffered; i++) {
+            SendData(ResendStart, FrameExpected, Buffer[ResendStart], PacketLength[ResendStart]);
+            start_timer(ResendStart, DATA_TIMER);
             stop_ack_timer();
-
-            inc(frame_to_send);
+            INC(ResendStart);
         }
 
-        phl_ready = false;
+        PhlReady = false;
     }
-    return;
 }
-static void data_timeout_handler(int* arg) {
-    dbg_event("---- DATA %d timeout\n", arg);
-    frame_to_send = ack_expected;
-    for (seq_nr i = 0; i < nbuffered; i++) {
-        send_data(frame_to_send, frame_expected, buffer[frame_to_send],
-                  packet_length[frame_to_send]);
-        start_timer(frame_to_send, DATA_TIMER);
+
+// 处理数据超时事件
+static void DataTimeoutHandler(int* Arg) {
+    dbg_event("---- DATA %d timeout\n", *Arg);
+    
+    // 回退N步，重传所有已发送但未确认的帧
+    SeqNr ResendStart = AckExpected;
+    
+    for (SeqNr i = 0; i < NBuffered; i++) {
+        SendData(ResendStart, FrameExpected, Buffer[ResendStart], PacketLength[ResendStart]);
+        start_timer(ResendStart, DATA_TIMER);
         stop_ack_timer();
-
-        inc(frame_to_send);
+        INC(ResendStart);
     }
 
-    phl_ready = false;
+    PhlReady = false;
 }
-static void ACK_timeout_handler() {
-    send_ACK(frame_expected);
+
+// 处理ACK超时事件
+static void ACKTimeoutHandler() {
+    SendACK(FrameExpected);
     stop_ack_timer();
 }
 
-void (*event_handler[])(int*) = {
-    [NETWORK_LAYER_READY] = network_ready_handler,
-    [PHYSICAL_LAYER_READY] = physical_ready_handler,
-    [FRAME_RECEIVED] = frame_received_handler,
-    [DATA_TIMEOUT] = data_timeout_handler,
-    [ACK_TIMEOUT] = ACK_timeout_handler,
+// 事件处理函数表
+void (*EventHandler[])(int*) = {
+    [NETWORK_LAYER_READY] = NetworkReadyHandler,
+    [PHYSICAL_LAYER_READY] = PhysicalReadyHandler,
+    [FRAME_RECEIVED] = FrameReceivedHandler,
+    [DATA_TIMEOUT] = DataTimeoutHandler,
+    [ACK_TIMEOUT] = ACKTimeoutHandler,
 };
 
 int main(int argc, char** argv) {
-    int event, arg;
+    int Event, Arg;
 
     protocol_init(argc, argv);
     disable_network_layer();
+    
     for (;;) {
-        event = wait_for_event(&arg);
+        Event = wait_for_event(&Arg);
 
-        event_handler[event](&arg);
+        // 调用对应的事件处理函数
+        EventHandler[Event](&Arg);
 
-        if (nbuffered < MAX_SEQ && phl_ready)
+        // 根据窗口状态启用/禁用网络层
+        if (NBuffered < MAX_SEQ && PhlReady)
             enable_network_layer();
         else
             disable_network_layer();
     }
 
     return 0;
-}
+}    
